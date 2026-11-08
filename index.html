@@ -6,7 +6,7 @@
 <title>Dbus en directo</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  /* Layout: mapa a pantalla completa, panel de líneas a la izquierda (arriba en móvil) */
+  /* Layout: mapa a pantalla completa con un panel flotante arriba a la izquierda */
   :root {
     --bg: #f4f6f5; --panel: #ffffff; --fg: #1b2523; --muted: #5d6b67; --line: #d8dfdc;
     --accent: #0b7a6b; --ok: #1d8a4e; --bad: #b3361f;
@@ -20,8 +20,8 @@
     --accent: #3cc5b0; --ok: #4cc27f; --bad: #ef7a63; color-scheme: dark; }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
-  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); display: grid; grid-template-columns: 300px 1fr; }
-  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); position: relative; overflow: hidden; }
+  aside { position: absolute; top: 12px; left: 12px; z-index: 1000; width: 290px; max-width: calc(100% - 24px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.28); overflow: hidden; }
   header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
   h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: .01em; }
   #estado { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
@@ -31,25 +31,14 @@
   .selector { padding: 10px 16px 0; }
   .selector select { width: 100%; font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
   .selector select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .acciones { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .acciones { display: flex; gap: 8px; padding: 10px 16px 12px; }
   button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
   button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .55; cursor: progress; }
   button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  #lineas { overflow-y: auto; padding: 6px 8px 14px; flex: 1; min-height: 0; }
-  .linea { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 5px 8px; }
-  .linea:hover { background: var(--bg); }
-  .linea .chip { min-width: 40px; text-align: center; font-weight: 700; font-size: 12.5px; color: #fff; border-radius: 5px; padding: 2px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
-  .linea .nom { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .linea .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .linea.off { opacity: .38; }
-  #map { height: 100%; min-width: 0; }
+  #map { position: absolute; inset: 0; }
   .bus { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11.5px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
   .leaflet-container { font-family: var(--font); }
-  @media (max-width: 720px) {
-    body { grid-template-columns: 1fr; grid-template-rows: 210px 1fr; }
-    aside { border-right: 0; border-bottom: 1px solid var(--line); }
-  }
 </style>
 </head>
 <body>
@@ -59,8 +48,7 @@
     <div id="estado"><i></i><span>Cargando…</span></div>
   </header>
   <div class="selector"><select id="selLinea" aria-label="Elegir línea"></select></div>
-  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button><button id="todas">Todas</button><button id="ninguna">Ninguna</button></div>
-  <div id="lineas"></div>
+  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button></div>
 </aside>
 <div id="map"></div>
 
@@ -118,7 +106,8 @@ function decodificarFeed(buf) {
 // ====== MAPA ======
 window.addEventListener('error', ev => { const s = document.querySelector('#estado span'); if (s) { s.textContent = 'Error en la página: ' + ev.message; document.getElementById('estado').className = 'error'; } });
 if (typeof L === 'undefined') throw new Error('No se ha podido cargar Leaflet (la librería del mapa). Comprueba la conexión.');
-const map = L.map('map', { zoomControl: true }).setView([43.3183, -1.9812], 13);
+const map = L.map('map', { zoomControl: false }).setView([43.3183, -1.9812], 13);
+L.control.zoom({ position: 'topright' }).addTo(map);
 // Mapa de fondo sin clave (Esri). Alternativas con cuenta gratuita: MapTiler o Stadia Maps.
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
   maxZoom: 19,
@@ -141,21 +130,9 @@ DATA.stops.forEach(([nombre, lat, lon]) =>
 function paradas() { map.getZoom() >= 15 ? capaParadas.addTo(map) : map.removeLayer(capaParadas); }
 map.on('zoomend', paradas); paradas();
 
-// ====== PANEL DE LÍNEAS ======
-const cont = document.getElementById('lineas');
-DATA.routes.forEach(r => {
-  const b = document.createElement('button');
-  b.className = 'linea'; b.type = 'button';
-  b.innerHTML = '<span class="chip" style="background:' + r.c + '">' + r.n + '</span><span class="nom"></span><span class="n"></span>';
-  b.querySelector('.nom').textContent = r.name;
-  b.onclick = () => ponerLinea(r.id, !porRuta[r.id].visible);
-  porRuta[r.id].btn = b; cont.appendChild(b);
-});
-function ponerLinea(id, v, desdeSelector) {
+function ponerLinea(id, v) {
   const o = porRuta[id]; o.visible = v;
   v ? o.capa.addTo(map) : map.removeLayer(o.capa);
-  o.btn.classList.toggle('off', !v);
-  if (!desdeSelector) { document.getElementById('selLinea').value = ''; dibujarBuses(); }
 }
 
 // Desplegable: elegir una línea muestra solo esa y acerca el mapa a su recorrido
@@ -172,12 +149,10 @@ function enfocar(id) {
 }
 sel.onchange = () => {
   const id = sel.value;
-  Object.keys(porRuta).forEach(k => ponerLinea(k, id === '' || k === id, true));
+  Object.keys(porRuta).forEach(k => ponerLinea(k, id === '' || k === id));
   dibujarBuses();
   if (id) enfocar(id);
 };
-document.getElementById('todas').onclick = () => Object.keys(porRuta).forEach(id => ponerLinea(id, true));
-document.getElementById('ninguna').onclick = () => Object.keys(porRuta).forEach(id => ponerLinea(id, false));
 
 // ====== AUTOBUSES EN TIEMPO REAL ======
 const marcadores = new Map();   // id de vehículo -> marcador
@@ -200,7 +175,6 @@ function dibujarBuses() {
     m.bindTooltip('Línea ' + n + ' · autobús ' + b.id);
   });
   marcadores.forEach((m, id) => { if (!vistos.has(id)) { capaBuses.removeLayer(m); marcadores.delete(id); } });
-  Object.values(porRuta).forEach(o => o.btn.querySelector('.n').textContent = o.buses || '');
 }
 
 const estado = document.getElementById('estado');
