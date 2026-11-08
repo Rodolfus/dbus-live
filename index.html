@@ -28,6 +28,9 @@
   #estado i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
   #estado.ok i { background: var(--ok); } #estado.error i { background: var(--bad); }
   #estado.error { color: var(--bad); }
+  .selector { padding: 10px 16px 0; }
+  .selector select { width: 100%; font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .selector select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .acciones { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
   button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
   button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
@@ -55,6 +58,7 @@
     <h1>Dbus en directo</h1>
     <div id="estado"><i></i><span>Cargando…</span></div>
   </header>
+  <div class="selector"><select id="selLinea" aria-label="Elegir línea"></select></div>
   <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button><button id="todas">Todas</button><button id="ninguna">Ninguna</button></div>
   <div id="lineas"></div>
 </aside>
@@ -124,7 +128,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_M
 const porRuta = {};      // id de línea -> { capa, color, n, visible, buses }
 const capaBuses = L.layerGroup().addTo(map);
 DATA.routes.forEach(r => {
-  const capa = L.layerGroup(r.s.map(p => L.polyline(p, { color: r.c, weight: 4, opacity: .8 })));
+  const capa = L.featureGroup(r.s.map(p => L.polyline(p, { color: r.c, weight: 4, opacity: .8 })));
   capa.addTo(map);
   porRuta[r.id] = { r, capa, visible: true, buses: 0 };
 });
@@ -147,12 +151,31 @@ DATA.routes.forEach(r => {
   b.onclick = () => ponerLinea(r.id, !porRuta[r.id].visible);
   porRuta[r.id].btn = b; cont.appendChild(b);
 });
-function ponerLinea(id, v) {
+function ponerLinea(id, v, desdeSelector) {
   const o = porRuta[id]; o.visible = v;
   v ? o.capa.addTo(map) : map.removeLayer(o.capa);
   o.btn.classList.toggle('off', !v);
-  dibujarBuses();
+  if (!desdeSelector) { document.getElementById('selLinea').value = ''; dibujarBuses(); }
 }
+
+// Desplegable: elegir una línea muestra solo esa y acerca el mapa a su recorrido
+const sel = document.getElementById('selLinea');
+const todasOpt = document.createElement('option'); todasOpt.value = ''; todasOpt.textContent = 'Todas las líneas'; sel.appendChild(todasOpt);
+DATA.routes.forEach(r => { const op = document.createElement('option'); op.value = r.id; op.textContent = r.n + ' · ' + r.name; sel.appendChild(op); });
+function enfocar(id) {
+  let b = porRuta[id].capa.getBounds();
+  if (!b.isValid()) {   // líneas sin trazado en el GTFS: se usan las posiciones de sus autobuses
+    const pts = ultimos.filter(x => x.ruta === id).map(x => [x.lat, x.lon]);
+    if (pts.length) b = L.latLngBounds(pts);
+  }
+  if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
+}
+sel.onchange = () => {
+  const id = sel.value;
+  Object.keys(porRuta).forEach(k => ponerLinea(k, id === '' || k === id, true));
+  dibujarBuses();
+  if (id) enfocar(id);
+};
 document.getElementById('todas').onclick = () => Object.keys(porRuta).forEach(id => ponerLinea(id, true));
 document.getElementById('ninguna').onclick = () => Object.keys(porRuta).forEach(id => ponerLinea(id, false));
 
