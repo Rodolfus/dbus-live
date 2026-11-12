@@ -36,7 +36,7 @@
   button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .55; cursor: progress; }
   button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  a.volver { font: inherit; color: var(--fg); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; }
+  a.volver { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 1000; font: inherit; font-weight: 600; color: var(--fg); background: var(--panel); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
   a.volver:hover { border-color: var(--accent); } a.volver:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #map { position: absolute; inset: 0; }
   .bus { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11.5px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
@@ -50,8 +50,9 @@
     <div id="estado"><i></i><span>Cargando…</span></div>
   </header>
   <div class="selector"><select id="selLinea" aria-label="Elegir línea"></select></div>
-  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button><a class="volver" href="https://asiercasocv.netlify.app/proyectos.html">← Proyectos</a></div>
+  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button></div>
 </aside>
+<a class="volver" href="https://asiercasocv.netlify.app/proyectos.html">← Proyectos</a>
 <div id="map"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
