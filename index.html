@@ -39,6 +39,7 @@
   a.volver { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 1000; font: inherit; font-weight: 600; color: var(--fg); background: var(--panel); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
   a.volver:hover { border-color: var(--accent); } a.volver:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #map { position: absolute; inset: 0; }
+  .leaflet-top.leaflet-right { top: calc(46px + env(safe-area-inset-top, 0px)); }
   .bus { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11.5px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
   .leaflet-container { font-family: var(--font); }
 </style>
