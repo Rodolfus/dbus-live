@@ -36,6 +36,8 @@
   button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .55; cursor: progress; }
   button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  a.volver { font: inherit; color: var(--fg); text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; }
+  a.volver:hover { border-color: var(--accent); } a.volver:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #map { position: absolute; inset: 0; }
   .bus { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11.5px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
   .leaflet-container { font-family: var(--font); }
@@ -48,7 +50,7 @@
     <div id="estado"><i></i><span>Cargando…</span></div>
   </header>
   <div class="selector"><select id="selLinea" aria-label="Elegir línea"></select></div>
-  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button></div>
+  <div class="acciones"><button id="refrescar" type="button" class="principal">Actualizar</button><a class="volver" href="https://asiercasocv.netlify.app/proyectos.html">← Proyectos</a></div>
 </aside>
 <div id="map"></div>
 
