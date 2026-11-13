@@ -36,16 +36,6 @@
   button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .55; cursor: progress; }
   button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  #lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; border-top: 1px solid var(--line); min-height: 0; max-height: 38vh; }
-  #lista li { margin: 0; }
-  #lista button { display: flex; width: 100%; align-items: center; gap: 9px; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 8px 16px; }
-  #lista button:hover, #lista button:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline-offset: -2px; }
-  #lista .punto { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-  #lista .txt { flex: 1; min-width: 0; }
-  #lista .nom { display: block; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #lista .sub { display: block; font-size: 12px; color: var(--muted); }
-  #lista .dist { font-size: 12px; font-weight: 600; color: var(--accent); flex: none; }
-  .vacio { padding: 12px 16px; color: var(--muted); font-size: 13px; }
   .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); flex: none; }
   .leyenda span { display: inline-flex; align-items: center; gap: 5px; }
   .leyenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
@@ -63,7 +53,7 @@
   .leaflet-popup-content .tag.no { background: #8a5a00; }
   .leaflet-popup-content .tag.si { background: #1d7a46; }
   .leaflet-popup-content a.ir { display: inline-block; margin-top: 8px; font-weight: 600; color: #0b7a6b; }
-  @media (max-width: 520px) { aside { width: calc(100% - 24px); } #lista { max-height: 26vh; } a.volver { top: auto; bottom: 22px; } .leaflet-top.leaflet-right { top: 12px; } }
+  @media (max-width: 520px) { aside { width: calc(100% - 24px); } a.volver { top: auto; bottom: 22px; } .leaflet-top.leaflet-right { top: 12px; } }
 </style>
 </head>
 <body>
@@ -82,7 +72,6 @@
     <label class="chk"><input type="checkbox" id="soloAcc"> Solo accesibles (movilidad reducida)</label>
   </div>
   <div class="acciones"><button id="cerca" type="button" class="principal">Cerca de mí</button><button id="reset" type="button">Ver todos</button></div>
-  <ul id="lista" aria-label="Lista de baños"></ul>
   <div class="leyenda">
     <span><i style="background:var(--t-p)"></i>Con personal</span>
     <span><i style="background:var(--t-s)"></i>Sin personal</span>
@@ -512,15 +501,7 @@ function pintar(ajustar) {
   else visibles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   capa.clearLayers();
   visibles.forEach(i => capa.addLayer(i.marcador));
-  const ul = $('lista'); ul.textContent = '';
-  if (!visibles.length) { const li = document.createElement('li'); li.className = 'vacio'; li.textContent = 'Ningún baño cumple esos filtros.'; ul.appendChild(li); }
-  visibles.forEach(i => {
-    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
-    b.innerHTML = '<span class="punto" style="background:' + TIPOS[i.tipo].color + '"></span><span class="txt"><span class="nom">' + esc(i.nombre) + '</span><span class="sub">' + esc(i.barrio) + (i.acc ? ' · Accesible' : '') + '</span></span>' + (i.dist !== null ? '<span class="dist">' + fmt(i.dist) + '</span>' : '');
-    b.addEventListener('click', () => { map.setView([i.lat, i.lon], Math.max(map.getZoom(), 17), { animate: true }); i.marcador.openPopup(); });
-    li.appendChild(b); ul.appendChild(li);
-  });
-  estado(visibles.length + ' de ' + items.length + ' baños' + (yo ? ' · ordenados por cercanía' : ''));
+  estado(visibles.length ? visibles.length + ' de ' + items.length + ' baños' + (yo ? ' · mostrando el más cercano' : '') : 'Ningún baño cumple esos filtros.');
   if (ajustar && visibles.length) map.fitBounds(L.latLngBounds(visibles.map(i => [i.lat, i.lon])), { padding: [50, 50], maxZoom: 15 });
 }
 
