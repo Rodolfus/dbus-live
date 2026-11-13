@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baños públicos de Donostia</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg: #f4f6f5; --panel: #ffffff; --fg: #1b2523; --muted: #5d6b67; --line: #d8dfdc;
+    --accent: #0b7a6b; --ok: #1d8a4e; --bad: #b3361f;
+    --t-p: #0b7a6b; --t-s: #b86a00; --t-c: #3558c9;
+    --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #12191a; --panel: #1b2527; --fg: #e6eeec; --muted: #9bacA8; --line: #2d3a3c;
+    --accent: #3cc5b0; --ok: #4cc27f; --bad: #ef7a63; --t-p: #1fa392; --t-s: #d98a1f; --t-c: #6d8cf0; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+    --bg: #12191a; --panel: #1b2527; --fg: #e6eeec; --muted: #9bacA8; --line: #2d3a3c;
+    --accent: #3cc5b0; --ok: #4cc27f; --bad: #ef7a63; --t-p: #1fa392; --t-s: #d98a1f; --t-c: #6d8cf0; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 var(--font); position: relative; overflow: hidden; }
+  aside { position: absolute; top: 12px; left: 12px; z-index: 1000; width: 300px; max-width: calc(100% - 24px); max-height: calc(100% - 24px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.28); overflow: hidden; }
+  header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); flex: none; }
+  h1 { font-size: 18px; margin: 0 0 4px; letter-spacing: .01em; }
+  #estado { font-size: 12.5px; color: var(--muted); }
+  #estado.error { color: var(--bad); }
+  .filtros { padding: 10px 16px 0; display: grid; gap: 8px; flex: none; }
+  .filtros select { width: 100%; font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .filtros label.chk { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .filtros input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+  select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .acciones { display: flex; gap: 8px; padding: 10px 16px 12px; flex: none; }
+  button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button.principal { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: progress; }
+  button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; border-top: 1px solid var(--line); min-height: 0; max-height: 38vh; }
+  #lista li { margin: 0; }
+  #lista button { display: flex; width: 100%; align-items: center; gap: 9px; text-align: left; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 8px 16px; }
+  #lista button:hover, #lista button:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); outline-offset: -2px; }
+  #lista .punto { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  #lista .txt { flex: 1; min-width: 0; }
+  #lista .nom { display: block; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #lista .sub { display: block; font-size: 12px; color: var(--muted); }
+  #lista .dist { font-size: 12px; font-weight: 600; color: var(--accent); flex: none; }
+  .vacio { padding: 12px 16px; color: var(--muted); font-size: 13px; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); flex: none; }
+  .leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+  .leyenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  a.volver { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 1000; font: inherit; font-weight: 600; color: var(--fg); background: var(--panel); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
+  a.volver:hover { border-color: var(--accent); } a.volver:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #map { position: absolute; inset: 0; }
+  .leaflet-top.leaflet-right { top: calc(46px + env(safe-area-inset-top, 0px)); }
+  .leaflet-container { font-family: var(--font); }
+  .wc { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); }
+  .yo { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(26,115,232,.4), 0 1px 5px rgba(0,0,0,.5); }
+  .leaflet-popup-content { margin: 12px 14px; font-size: 13px; min-width: 190px; color: #1b2523; }
+  .leaflet-popup-content h2 { font-size: 15px; margin: 0 0 6px; }
+  .leaflet-popup-content p { margin: 3px 0; }
+  .leaflet-popup-content .tag { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 6px; color: #fff; }
+  .leaflet-popup-content .tag.no { background: #8a5a00; }
+  .leaflet-popup-content .tag.si { background: #1d7a46; }
+  .leaflet-popup-content a.ir { display: inline-block; margin-top: 8px; font-weight: 600; color: #0b7a6b; }
+  @media (max-width: 520px) { aside { width: calc(100% - 24px); } #lista { max-height: 26vh; } a.volver { top: auto; bottom: 22px; } .leaflet-top.leaflet-right { top: 12px; } }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Baños públicos de Donostia</h1>
+    <div id="estado">Cargando…</div>
+  </header>
+  <div class="filtros">
+    <select id="selTipo" aria-label="Tipo de baño">
+      <option value="">Todos los tipos</option>
+      <option value="P">Con personal</option>
+      <option value="S">Sin personal</option>
+      <option value="C">Cabina autolimpiable</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="soloAcc"> Solo accesibles (movilidad reducida)</label>
+  </div>
+  <div class="acciones"><button id="cerca" type="button" class="principal">Cerca de mí</button><button id="reset" type="button">Ver todos</button></div>
+  <ul id="lista" aria-label="Lista de baños"></ul>
+  <div class="leyenda">
+    <span><i style="background:var(--t-p)"></i>Con personal</span>
+    <span><i style="background:var(--t-s)"></i>Sin personal</span>
+    <span><i style="background:var(--t-c)"></i>Cabina autolimpiable</span>
+  </div>
+</aside>
+<a class="volver" href="https://asiercasocv.netlify.app/proyectos.html">← Proyectos</a>
+<div id="map"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// Datos: Ayuntamiento de Donostia / San Sebastián, Open Data (licencia CC BY-SA), conjunto «Baños públicos».
+// Cada fila: [nombre, tipo (P con personal · S sin personal · C cabina), accesible (1/0), horario, calle, barrio, lat, lon]
+const BANOS = [
+ [
+  "WC Pasealeku berria (Paseo Nuevo)",
+  "S",
+  1,
+  "Ene-abr y oct-dic: 8:00 - 18:00. May y sep: 8:00 - 20:00. Jun-ago: 8:00 - 21:30",
+  "Paseo Nuevo",
+  "Erdialdea",
+  43.325174,
+  -1.99246
+ ],
+ [
+  "WC Puerto (Muelle)",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo del Muelle",
+  "Erdialdea",
+  43.323474,
+  -1.987926
+ ],
+ [
+  "WC Plaza de la Trinidad",
+  "C",
+  1,
+  "Todo el año: 8:00 - 23:00",
+  "Plaza de la Trinidad",
+  "Erdialdea",
+  43.324254,
+  -1.986054
+ ],
+ [
+  "WC Boulevard (Zumardia)",
+  "P",
+  1,
+  "Ene-may y oct-dic: 9:00 - 20:30. Jun-sep: 9:00 - 21:30",
+  "Alameda del Boulevard",
+  "Erdialdea",
+  43.322101,
+  -1.983978
+ ],
+ [
+  "WC Santa Katalina",
+  "P",
+  1,
+  "Todo el año: 9:00 - 21:00",
+  "Plaza Ramón Labayen",
+  "Erdialdea",
+  43.320958,
+  -1.979511
+ ],
+ [
+  "WC Playa de la Zurriola",
+  "P",
+  1,
+  "Jun y sep: 10:00 - 20:00. Jul-ago: 9:30 - 20:30",
+  "Paseo de la Zurriola",
+  "Gros",
+  43.325607,
+  -1.97517
+ ],
+ [
+  "WC Plaza de los Pinares",
+  "P",
+  0,
+  "Ene-abr y sep-dic: 10:00 - 20:00. May-ago: 10:00 - 21:00",
+  "Plaza de Pinares",
+  "Gros",
+  43.322089,
+  -1.974959
+ ],
+ [
+  "WC Plaza Cervantes",
+  "P",
+  1,
+  "Ene-may y oct-dic: 10:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30",
+  "Plaza de Cervantes",
+  "Erdialdea",
+  43.31837,
+  -1.985107
+ ],
+ [
+  "WC Plaza del Buen Pastor",
+  "P",
+  1,
+  "Ene-may y oct-dic: 9:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30",
+  "Plaza del Buen Pastor",
+  "Erdialdea",
+  43.31715,
+  -1.981613
+ ],
+ [
+  "WC Parque de Araba",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Parque de Araba",
+  "Erdialdea",
+  43.31251,
+  -1.9801
+ ],
+ [
+  "WC Jardines de Ondarreta",
+  "P",
+  0,
+  "Jun-sep: 9:30 - 21:30",
+  "Jardines de Ondarreta",
+  "Antiguo",
+  43.316778,
+  -2.004213
+ ],
+ [
+  "WC Plaza José María Sert",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Plaza José María Sert",
+  "Antiguo",
+  43.310625,
+  -2.007323
+ ],
+ [
+  "WC San Francisco Javier",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Plaza de Benita Asas",
+  "Egia",
+  43.319589,
+  -1.96712
+ ],
+ [
+  "WC Parque de Cristina Enea (1)",
+  "C",
+  1,
+  "Todo el año: 8:00 - 21:00",
+  "Parque de Cristina Enea",
+  "Egia",
+  43.316165,
+  -1.974612
+ ],
+ [
+  "WC Parque de Cristina Enea (2)",
+  "C",
+  1,
+  "Todo el año: 8:00 - 21:00",
+  "Parque de Cristina Enea",
+  "Egia",
+  43.312599,
+  -1.975996
+ ],
+ [
+  "WC Plaza Blas de Otero",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Plaza de Blas de Otero",
+  "Egia",
+  43.317737,
+  -1.975222
+ ],
+ [
+  "WC Ulia",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo de Ulia",
+  "Ategorrieta - Ulia",
+  43.330263,
+  -1.959254
+ ],
+ [
+  "WC Altza",
+  "C",
+  0,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo de Herrera",
+  "Altza",
+  43.318495,
+  -1.930223
+ ],
+ [
+  "WC Herrera",
+  "C",
+  0,
+  "Todo el año: 8:00 - 22:00",
+  "Ederrena",
+  "Altza",
+  43.318587,
+  -1.938089
+ ],
+ [
+  "WC Txaparrene",
+  "C",
+  0,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo de Txaparrene",
+  "Intxaurrondo",
+  43.319923,
+  -1.950145
+ ],
+ [
+  "WC Ametzagaina",
+  "C",
+  1,
+  "Todo el año: 8:00 - 20:00",
+  "Parque de Lauaizeta",
+  "Intxaurrondo",
+  43.308905,
+  -1.953731
+ ],
+ [
+  "WC Sagastieder",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo de Sagastieder",
+  "Intxaurrondo",
+  43.312567,
+  -1.957439
+ ],
+ [
+  "WC Kursaal",
+  "P",
+  0,
+  "Ene-abr y oct-dic: 10:00 - 18:00. May y sep: 10:00 - 20:00. Jun-ago: 10:00 - 21:30",
+  "Paseo de la Zurriola",
+  "Gros",
+  43.325028,
+  -1.97879
+ ],
+ [
+  "WC Sagües",
+  "P",
+  0,
+  "Jun-sep: 10:00 - hasta cerrar el bar",
+  "Paseo de la Zurriola",
+  "Gros",
+  43.327527,
+  -1.971338
+ ],
+ [
+  "WC La Concha (cabinas Kontxa)",
+  "P",
+  1,
+  "Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30",
+  "Rafael Muñoa",
+  "Erdialdea",
+  43.317668,
+  -1.985578
+ ],
+ [
+  "WC Ondarreta (cabinas)",
+  "P",
+  1,
+  "Ene-mar y nov-dic: 10:00 - 17:00. Abr, may y oct: 10:00 - 18:00. Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30",
+  "Jardines de Ondarreta",
+  "Antiguo",
+  43.316023,
+  -2.001684
+ ],
+ [
+  "WC Isla de Santa Clara",
+  "S",
+  0,
+  "Jun-sep: 9:30 - 21:30",
+  "Isla de Santa Clara",
+  "Erdialdea",
+  43.320689,
+  -2.00044
+ ],
+ [
+  "WC Igeldo",
+  "S",
+  0,
+  "Todo el año",
+  "Plaza Lizardia",
+  "Igeldo",
+  43.308741,
+  -2.036364
+ ],
+ [
+  "WC Oleta",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Plaza Ferrerías",
+  "Amara Berri",
+  43.302711,
+  -1.977051
+ ],
+ [
+  "WC Larratxo",
+  "C",
+  0,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo Bertsolari Txirrita",
+  "Altza",
+  43.313177,
+  -1.938998
+ ],
+ [
+  "WC Zubieta",
+  "S",
+  0,
+  "Todo el año: 10:00 - hasta cerrar el frontón",
+  "Herriko Plaza",
+  "Zubieta",
+  43.271026,
+  -2.032817
+ ],
+ [
+  "WC Urgull (Polborina)",
+  "S",
+  0,
+  "Todo el año: 10:30 - hasta cerrar Urgull",
+  "Monte Urgull",
+  "Erdialdea",
+  43.323961,
+  -1.99123
+ ],
+ [
+  "WC Txomin",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo Kristobaldegi",
+  "Loiola",
+  43.304885,
+  -1.958223
+ ],
+ [
+  "WC Arrobitxulo",
+  "C",
+  1,
+  "Todo el año: 8:00 - 22:00",
+  "San Antonio",
+  "Miracruz - Bidebieta",
+  43.318109,
+  -1.944121
+ ],
+ [
+  "WC Mirador (Behatokia)",
+  "C",
+  0,
+  "Todo el año: 8:00 - 22:00",
+  "Paseo de Herrera",
+  "Altza",
+  43.319884,
+  -1.93452
+ ],
+ [
+  "WC Clara Campoamor",
+  "P",
+  0,
+  "Jun-sep: 9:30 - 21:30",
+  "Paseo de la Concha",
+  "Erdialdea",
+  43.315762,
+  -1.988277
+ ]
+];
+const TIPOS = {
+  P: { nombre: 'Con personal', color: 'var(--t-p)', hex: '#0b7a6b' },
+  S: { nombre: 'Sin personal', color: 'var(--t-s)', hex: '#b86a00' },
+  C: { nombre: 'Cabina autolimpiable', color: 'var(--t-c)', hex: '#3558c9' }
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function estado(txt, error) { const e = $('estado'); e.textContent = txt; e.className = error ? 'error' : ''; }
+
+window.addEventListener('error', ev => estado('Error en la página: ' + ev.message, true));
+if (typeof L === 'undefined') throw new Error('No se ha podido cargar Leaflet (la librería del mapa). Comprueba la conexión.');
+
+const map = L.map('map', { zoomControl: false }).setView([43.3183, -1.9812], 13);
+L.control.zoom({ position: 'topright' }).addTo(map);
+// Mismo mapa de fondo que el de Dbus (Esri, sin clave)
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: 'Mapa © Esri, HERE, Garmin, OpenStreetMap · Datos: Ayuntamiento de Donostia / San Sebastián (CC BY-SA)'
+}).addTo(map);
+
+const items = BANOS.map(([nombre, tipo, acc, horario, calle, barrio, lat, lon]) => {
+  const t = TIPOS[tipo];
+  const marcador = L.marker([lat, lon], {
+    title: nombre, keyboard: true,
+    icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14],
+      html: '<div class="wc" style="background:' + t.hex + '">WC</div>' })
+  }).bindPopup(
+    '<h2>' + esc(nombre) + '</h2>' +
+    '<p><span class="tag ' + (acc ? 'si' : 'no') + '">' + (acc ? 'Accesible' : 'No accesible') + '</span> ' + esc(t.nombre) + '</p>' +
+    '<p><b>Horario:</b> ' + esc(horario) + '</p>' +
+    '<p><b>Dónde:</b> ' + esc(calle) + ' · ' + esc(barrio) + '</p>' +
+    '<a class="ir" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=walking">Cómo llegar a pie ↗</a>'
+  );
+  return { nombre, tipo, acc, calle, barrio, lat, lon, marcador, dist: null };
+});
+
+const capa = L.layerGroup().addTo(map);
+let yo = null, yoMarca = null;
+
+function distancia(a, b) { // metros (haversine)
+  const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(h));
+}
+function fmt(m) { return m < 1000 ? Math.round(m / 10) * 10 + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km'; }
+
+let visibles = [];
+function pintar(ajustar) {
+  const tipo = $('selTipo').value, soloAcc = $('soloAcc').checked;
+  visibles = items.filter(i => (!tipo || i.tipo === tipo) && (!soloAcc || i.acc));
+  if (yo) { visibles.forEach(i => i.dist = distancia(yo, [i.lat, i.lon])); visibles.sort((a, b) => a.dist - b.dist); }
+  else visibles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  capa.clearLayers();
+  visibles.forEach(i => capa.addLayer(i.marcador));
+  const ul = $('lista'); ul.textContent = '';
+  if (!visibles.length) { const li = document.createElement('li'); li.className = 'vacio'; li.textContent = 'Ningún baño cumple esos filtros.'; ul.appendChild(li); }
+  visibles.forEach(i => {
+    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = '<span class="punto" style="background:' + TIPOS[i.tipo].color + '"></span><span class="txt"><span class="nom">' + esc(i.nombre) + '</span><span class="sub">' + esc(i.barrio) + (i.acc ? ' · Accesible' : '') + '</span></span>' + (i.dist !== null ? '<span class="dist">' + fmt(i.dist) + '</span>' : '');
+    b.addEventListener('click', () => { map.setView([i.lat, i.lon], Math.max(map.getZoom(), 17), { animate: true }); i.marcador.openPopup(); });
+    li.appendChild(b); ul.appendChild(li);
+  });
+  estado(visibles.length + ' de ' + items.length + ' baños' + (yo ? ' · ordenados por cercanía' : ''));
+  if (ajustar && visibles.length) map.fitBounds(L.latLngBounds(visibles.map(i => [i.lat, i.lon])), { padding: [50, 50], maxZoom: 15 });
+}
+
+$('selTipo').addEventListener('change', () => pintar(true));
+$('soloAcc').addEventListener('change', () => pintar(true));
+$('reset').addEventListener('click', () => {
+  $('selTipo').value = ''; $('soloAcc').checked = false; yo = null;
+  if (yoMarca) { map.removeLayer(yoMarca); yoMarca = null; }
+  pintar(true);
+});
+$('cerca').addEventListener('click', () => {
+  if (!navigator.geolocation) { estado('Tu navegador no permite saber dónde estás.', true); return; }
+  const b = $('cerca'); b.disabled = true; estado('Buscando tu ubicación…');
+  navigator.geolocation.getCurrentPosition(pos => {
+    b.disabled = false;
+    yo = [pos.coords.latitude, pos.coords.longitude];
+    if (yoMarca) map.removeLayer(yoMarca);
+    yoMarca = L.marker(yo, { interactive: false, icon: L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [8, 8], html: '<div class="yo"></div>' }) }).addTo(map);
+    pintar(false);
+    if (visibles.length && visibles[0].dist < 15000) {
+      map.fitBounds(L.latLngBounds([yo, [visibles[0].lat, visibles[0].lon]]), { padding: [70, 70], maxZoom: 17 });
+      visibles[0].marcador.openPopup();
+    } else if (visibles.length) estado('Parece que estás lejos de Donostia (' + fmt(visibles[0].dist) + ' del baño más cercano).');
+  }, err => {
+    b.disabled = false; yo = null;
+    estado(err.code === 1 ? 'No has dado permiso para ver tu ubicación.' : 'No se ha podido saber tu ubicación.', true);
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+});
+
+pintar(true);
+</script>
+</body>
+</html>
