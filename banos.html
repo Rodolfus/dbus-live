@@ -38,6 +38,7 @@
   button:hover { border-color: var(--accent); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); flex: none; }
   .leyenda span { display: inline-flex; align-items: center; gap: 5px; }
+  .leyenda i.cer { background: #888; opacity: .5; }
   .leyenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   a.volver { position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 1000; font: inherit; font-weight: 600; color: var(--fg); background: var(--panel); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; box-shadow: 0 2px 12px rgba(0,0,0,.25); }
   a.volver:hover { border-color: var(--accent); } a.volver:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -45,6 +46,7 @@
   .leaflet-top.leaflet-right { top: calc(46px + env(safe-area-inset-top, 0px)); }
   .leaflet-container { font-family: var(--font); }
   .wc { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font: 700 11px/25px var(--font); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); }
+  .wc.cerrado { opacity: .5; filter: grayscale(.7); }
   .yo { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(26,115,232,.4), 0 1px 5px rgba(0,0,0,.5); }
   .leaflet-popup-content { margin: 12px 14px; font-size: 13px; min-width: 190px; color: #1b2523; }
   .leaflet-popup-content h2 { font-size: 15px; margin: 0 0 6px; }
@@ -52,6 +54,7 @@
   .leaflet-popup-content .tag { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 6px; color: #fff; }
   .leaflet-popup-content .tag.no { background: #8a5a00; }
   .leaflet-popup-content .tag.si { background: #1d7a46; }
+  .leaflet-popup-content .tag.cerr { background: #a8321f; }
   .leaflet-popup-content a.ir { display: inline-block; margin-top: 8px; font-weight: 600; color: #0b7a6b; }
   @media (max-width: 520px) { aside { width: calc(100% - 24px); } a.volver { top: auto; bottom: 22px; } .leaflet-top.leaflet-right { top: 12px; } }
 </style>
@@ -70,12 +73,14 @@
       <option value="C">Cabina autolimpiable</option>
     </select>
     <label class="chk"><input type="checkbox" id="soloAcc"> Solo accesibles (movilidad reducida)</label>
+    <label class="chk"><input type="checkbox" id="soloAbiertos"> Solo abiertos ahora</label>
   </div>
   <div class="acciones"><button id="cerca" type="button" class="principal">Cerca de mí</button><button id="reset" type="button">Ver todos</button></div>
   <div class="leyenda">
     <span><i style="background:var(--t-p)"></i>Con personal</span>
     <span><i style="background:var(--t-s)"></i>Sin personal</span>
     <span><i style="background:var(--t-c)"></i>Cabina autolimpiable</span>
+    <span><i class="cer"></i>Cerrado ahora (atenuado)</span>
   </div>
 </aside>
 <a class="volver" href="https://asiercasocv.netlify.app/proyectos.html">← Proyectos</a>
@@ -84,368 +89,45 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 // Datos: Ayuntamiento de Donostia / San Sebastián, Open Data (licencia CC BY-SA), conjunto «Baños públicos».
-// Cada fila: [nombre, tipo (P con personal · S sin personal · C cabina), accesible (1/0), horario, calle, barrio, lat, lon]
+// Cada fila: [nombre, tipo (P con personal · S sin personal · C cabina), accesible (1/0), horario (texto), calle, barrio, lat, lon,
+//   periodos]. Cada periodo: [mes desde, mes hasta, abre, cierra] con horas decimales (9.5 = 9:30); cierra null = «hasta cerrar el local».
 const BANOS = [
- [
-  "WC Pasealeku berria (Paseo Nuevo)",
-  "S",
-  1,
-  "Ene-abr y oct-dic: 8:00 - 18:00. May y sep: 8:00 - 20:00. Jun-ago: 8:00 - 21:30",
-  "Paseo Nuevo",
-  "Erdialdea",
-  43.325174,
-  -1.99246
- ],
- [
-  "WC Puerto (Muelle)",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo del Muelle",
-  "Erdialdea",
-  43.323474,
-  -1.987926
- ],
- [
-  "WC Plaza de la Trinidad",
-  "C",
-  1,
-  "Todo el año: 8:00 - 23:00",
-  "Plaza de la Trinidad",
-  "Erdialdea",
-  43.324254,
-  -1.986054
- ],
- [
-  "WC Boulevard (Zumardia)",
-  "P",
-  1,
-  "Ene-may y oct-dic: 9:00 - 20:30. Jun-sep: 9:00 - 21:30",
-  "Alameda del Boulevard",
-  "Erdialdea",
-  43.322101,
-  -1.983978
- ],
- [
-  "WC Santa Katalina",
-  "P",
-  1,
-  "Todo el año: 9:00 - 21:00",
-  "Plaza Ramón Labayen",
-  "Erdialdea",
-  43.320958,
-  -1.979511
- ],
- [
-  "WC Playa de la Zurriola",
-  "P",
-  1,
-  "Jun y sep: 10:00 - 20:00. Jul-ago: 9:30 - 20:30",
-  "Paseo de la Zurriola",
-  "Gros",
-  43.325607,
-  -1.97517
- ],
- [
-  "WC Plaza de los Pinares",
-  "P",
-  0,
-  "Ene-abr y sep-dic: 10:00 - 20:00. May-ago: 10:00 - 21:00",
-  "Plaza de Pinares",
-  "Gros",
-  43.322089,
-  -1.974959
- ],
- [
-  "WC Plaza Cervantes",
-  "P",
-  1,
-  "Ene-may y oct-dic: 10:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30",
-  "Plaza de Cervantes",
-  "Erdialdea",
-  43.31837,
-  -1.985107
- ],
- [
-  "WC Plaza del Buen Pastor",
-  "P",
-  1,
-  "Ene-may y oct-dic: 9:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30",
-  "Plaza del Buen Pastor",
-  "Erdialdea",
-  43.31715,
-  -1.981613
- ],
- [
-  "WC Parque de Araba",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Parque de Araba",
-  "Erdialdea",
-  43.31251,
-  -1.9801
- ],
- [
-  "WC Jardines de Ondarreta",
-  "P",
-  0,
-  "Jun-sep: 9:30 - 21:30",
-  "Jardines de Ondarreta",
-  "Antiguo",
-  43.316778,
-  -2.004213
- ],
- [
-  "WC Plaza José María Sert",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Plaza José María Sert",
-  "Antiguo",
-  43.310625,
-  -2.007323
- ],
- [
-  "WC San Francisco Javier",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Plaza de Benita Asas",
-  "Egia",
-  43.319589,
-  -1.96712
- ],
- [
-  "WC Parque de Cristina Enea (1)",
-  "C",
-  1,
-  "Todo el año: 8:00 - 21:00",
-  "Parque de Cristina Enea",
-  "Egia",
-  43.316165,
-  -1.974612
- ],
- [
-  "WC Parque de Cristina Enea (2)",
-  "C",
-  1,
-  "Todo el año: 8:00 - 21:00",
-  "Parque de Cristina Enea",
-  "Egia",
-  43.312599,
-  -1.975996
- ],
- [
-  "WC Plaza Blas de Otero",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Plaza de Blas de Otero",
-  "Egia",
-  43.317737,
-  -1.975222
- ],
- [
-  "WC Ulia",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo de Ulia",
-  "Ategorrieta - Ulia",
-  43.330263,
-  -1.959254
- ],
- [
-  "WC Altza",
-  "C",
-  0,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo de Herrera",
-  "Altza",
-  43.318495,
-  -1.930223
- ],
- [
-  "WC Herrera",
-  "C",
-  0,
-  "Todo el año: 8:00 - 22:00",
-  "Ederrena",
-  "Altza",
-  43.318587,
-  -1.938089
- ],
- [
-  "WC Txaparrene",
-  "C",
-  0,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo de Txaparrene",
-  "Intxaurrondo",
-  43.319923,
-  -1.950145
- ],
- [
-  "WC Ametzagaina",
-  "C",
-  1,
-  "Todo el año: 8:00 - 20:00",
-  "Parque de Lauaizeta",
-  "Intxaurrondo",
-  43.308905,
-  -1.953731
- ],
- [
-  "WC Sagastieder",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo de Sagastieder",
-  "Intxaurrondo",
-  43.312567,
-  -1.957439
- ],
- [
-  "WC Kursaal",
-  "P",
-  0,
-  "Ene-abr y oct-dic: 10:00 - 18:00. May y sep: 10:00 - 20:00. Jun-ago: 10:00 - 21:30",
-  "Paseo de la Zurriola",
-  "Gros",
-  43.325028,
-  -1.97879
- ],
- [
-  "WC Sagües",
-  "P",
-  0,
-  "Jun-sep: 10:00 - hasta cerrar el bar",
-  "Paseo de la Zurriola",
-  "Gros",
-  43.327527,
-  -1.971338
- ],
- [
-  "WC La Concha (cabinas Kontxa)",
-  "P",
-  1,
-  "Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30",
-  "Rafael Muñoa",
-  "Erdialdea",
-  43.317668,
-  -1.985578
- ],
- [
-  "WC Ondarreta (cabinas)",
-  "P",
-  1,
-  "Ene-mar y nov-dic: 10:00 - 17:00. Abr, may y oct: 10:00 - 18:00. Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30",
-  "Jardines de Ondarreta",
-  "Antiguo",
-  43.316023,
-  -2.001684
- ],
- [
-  "WC Isla de Santa Clara",
-  "S",
-  0,
-  "Jun-sep: 9:30 - 21:30",
-  "Isla de Santa Clara",
-  "Erdialdea",
-  43.320689,
-  -2.00044
- ],
- [
-  "WC Igeldo",
-  "S",
-  0,
-  "Todo el año",
-  "Plaza Lizardia",
-  "Igeldo",
-  43.308741,
-  -2.036364
- ],
- [
-  "WC Oleta",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Plaza Ferrerías",
-  "Amara Berri",
-  43.302711,
-  -1.977051
- ],
- [
-  "WC Larratxo",
-  "C",
-  0,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo Bertsolari Txirrita",
-  "Altza",
-  43.313177,
-  -1.938998
- ],
- [
-  "WC Zubieta",
-  "S",
-  0,
-  "Todo el año: 10:00 - hasta cerrar el frontón",
-  "Herriko Plaza",
-  "Zubieta",
-  43.271026,
-  -2.032817
- ],
- [
-  "WC Urgull (Polborina)",
-  "S",
-  0,
-  "Todo el año: 10:30 - hasta cerrar Urgull",
-  "Monte Urgull",
-  "Erdialdea",
-  43.323961,
-  -1.99123
- ],
- [
-  "WC Txomin",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo Kristobaldegi",
-  "Loiola",
-  43.304885,
-  -1.958223
- ],
- [
-  "WC Arrobitxulo",
-  "C",
-  1,
-  "Todo el año: 8:00 - 22:00",
-  "San Antonio",
-  "Miracruz - Bidebieta",
-  43.318109,
-  -1.944121
- ],
- [
-  "WC Mirador (Behatokia)",
-  "C",
-  0,
-  "Todo el año: 8:00 - 22:00",
-  "Paseo de Herrera",
-  "Altza",
-  43.319884,
-  -1.93452
- ],
- [
-  "WC Clara Campoamor",
-  "P",
-  0,
-  "Jun-sep: 9:30 - 21:30",
-  "Paseo de la Concha",
-  "Erdialdea",
-  43.315762,
-  -1.988277
- ]
+ ["WC Pasealeku berria (Paseo Nuevo)", "S", 1, "Ene-abr y oct-dic: 8:00 - 18:00. May y sep: 8:00 - 20:00. Jun-ago: 8:00 - 21:30", "Paseo Nuevo", "Erdialdea", 43.325174, -1.99246, [[1, 4, 8, 18], [10, 12, 8, 18], [5, 5, 8, 20], [9, 9, 8, 20], [6, 8, 8, 21.5]]],
+ ["WC Puerto (Muelle)", "C", 1, "Todo el año: 8:00 - 22:00", "Paseo del Muelle", "Erdialdea", 43.323474, -1.987926, [[1, 12, 8, 22]]],
+ ["WC Plaza de la Trinidad", "C", 1, "Todo el año: 8:00 - 23:00", "Plaza de la Trinidad", "Erdialdea", 43.324254, -1.986054, [[1, 12, 8, 23]]],
+ ["WC Boulevard (Zumardia)", "P", 1, "Ene-may y oct-dic: 9:00 - 20:30. Jun-sep: 9:00 - 21:30", "Alameda del Boulevard", "Erdialdea", 43.322101, -1.983978, [[1, 5, 9, 20.5], [10, 12, 9, 20.5], [6, 9, 9, 21.5]]],
+ ["WC Santa Katalina", "P", 1, "Todo el año: 9:00 - 21:00", "Plaza Ramón Labayen", "Erdialdea", 43.320958, -1.979511, [[1, 12, 9, 21]]],
+ ["WC Playa de la Zurriola", "P", 1, "Jun y sep: 10:00 - 20:00. Jul-ago: 9:30 - 20:30", "Paseo de la Zurriola", "Gros", 43.325607, -1.97517, [[6, 6, 10, 20], [9, 9, 10, 20], [7, 8, 9.5, 20.5]]],
+ ["WC Plaza de los Pinares", "P", 0, "Ene-abr y sep-dic: 10:00 - 20:00. May-ago: 10:00 - 21:00", "Plaza de Pinares", "Gros", 43.322089, -1.974959, [[1, 4, 10, 20], [9, 12, 10, 20], [5, 8, 10, 21]]],
+ ["WC Plaza Cervantes", "P", 1, "Ene-may y oct-dic: 10:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30", "Plaza de Cervantes", "Erdialdea", 43.31837, -1.985107, [[1, 5, 10, 20], [10, 12, 10, 20], [6, 6, 9, 20.5], [9, 9, 9, 20.5], [7, 8, 9, 21.5]]],
+ ["WC Plaza del Buen Pastor", "P", 1, "Ene-may y oct-dic: 9:00 - 20:00. Jun y sep: 9:00 - 20:30. Jul-ago: 9:00 - 21:30", "Plaza del Buen Pastor", "Erdialdea", 43.31715, -1.981613, [[1, 5, 9, 20], [10, 12, 9, 20], [6, 6, 9, 20.5], [9, 9, 9, 20.5], [7, 8, 9, 21.5]]],
+ ["WC Parque de Araba", "C", 1, "Todo el año: 8:00 - 22:00", "Parque de Araba", "Erdialdea", 43.31251, -1.9801, [[1, 12, 8, 22]]],
+ ["WC Jardines de Ondarreta", "P", 0, "Jun-sep: 9:30 - 21:30", "Jardines de Ondarreta", "Antiguo", 43.316778, -2.004213, [[6, 9, 9.5, 21.5]]],
+ ["WC Plaza José María Sert", "C", 1, "Todo el año: 8:00 - 22:00", "Plaza José María Sert", "Antiguo", 43.310625, -2.007323, [[1, 12, 8, 22]]],
+ ["WC San Francisco Javier", "C", 1, "Todo el año: 8:00 - 22:00", "Plaza de Benita Asas", "Egia", 43.319589, -1.96712, [[1, 12, 8, 22]]],
+ ["WC Parque de Cristina Enea (1)", "C", 1, "Todo el año: 8:00 - 21:00", "Parque de Cristina Enea", "Egia", 43.316165, -1.974612, [[1, 12, 8, 21]]],
+ ["WC Parque de Cristina Enea (2)", "C", 1, "Todo el año: 8:00 - 21:00", "Parque de Cristina Enea", "Egia", 43.312599, -1.975996, [[1, 12, 8, 21]]],
+ ["WC Plaza Blas de Otero", "C", 1, "Todo el año: 8:00 - 22:00", "Plaza de Blas de Otero", "Egia", 43.317737, -1.975222, [[1, 12, 8, 22]]],
+ ["WC Ulia", "C", 1, "Todo el año: 8:00 - 22:00", "Paseo de Ulia", "Ategorrieta - Ulia", 43.330263, -1.959254, [[1, 12, 8, 22]]],
+ ["WC Altza", "C", 0, "Todo el año: 8:00 - 22:00", "Paseo de Herrera", "Altza", 43.318495, -1.930223, [[1, 12, 8, 22]]],
+ ["WC Herrera", "C", 0, "Todo el año: 8:00 - 22:00", "Ederrena", "Altza", 43.318587, -1.938089, [[1, 12, 8, 22]]],
+ ["WC Txaparrene", "C", 0, "Todo el año: 8:00 - 22:00", "Paseo de Txaparrene", "Intxaurrondo", 43.319923, -1.950145, [[1, 12, 8, 22]]],
+ ["WC Ametzagaina", "C", 1, "Todo el año: 8:00 - 20:00", "Parque de Lauaizeta", "Intxaurrondo", 43.308905, -1.953731, [[1, 12, 8, 20]]],
+ ["WC Sagastieder", "C", 1, "Todo el año: 8:00 - 22:00", "Paseo de Sagastieder", "Intxaurrondo", 43.312567, -1.957439, [[1, 12, 8, 22]]],
+ ["WC Kursaal", "P", 0, "Ene-abr y oct-dic: 10:00 - 18:00. May y sep: 10:00 - 20:00. Jun-ago: 10:00 - 21:30", "Paseo de la Zurriola", "Gros", 43.325028, -1.97879, [[1, 4, 10, 18], [10, 12, 10, 18], [5, 5, 10, 20], [9, 9, 10, 20], [6, 8, 10, 21.5]]],
+ ["WC Sagües", "P", 0, "Jun-sep: 10:00 - hasta cerrar el bar", "Paseo de la Zurriola", "Gros", 43.327527, -1.971338, [[6, 9, 10, null]]],
+ ["WC La Concha (cabinas Kontxa)", "P", 1, "Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30", "Rafael Muñoa", "Erdialdea", 43.317668, -1.985578, [[6, 6, 9, 20], [9, 9, 9, 20], [7, 8, 9, 20.5]]],
+ ["WC Ondarreta (cabinas)", "P", 1, "Ene-mar y nov-dic: 10:00 - 17:00. Abr, may y oct: 10:00 - 18:00. Jun y sep: 9:00 - 20:00. Jul-ago: 9:00 - 20:30", "Jardines de Ondarreta", "Antiguo", 43.316023, -2.001684, [[1, 3, 10, 17], [11, 12, 10, 17], [4, 5, 10, 18], [10, 10, 10, 18], [6, 6, 9, 20], [9, 9, 9, 20], [7, 8, 9, 20.5]]],
+ ["WC Isla de Santa Clara", "S", 0, "Jun-sep: 9:30 - 21:30", "Isla de Santa Clara", "Erdialdea", 43.320689, -2.00044, [[6, 9, 9.5, 21.5]]],
+ ["WC Igeldo", "S", 0, "Todo el año", "Plaza Lizardia", "Igeldo", 43.308741, -2.036364, [[1, 12, 0, 24]]],
+ ["WC Oleta", "C", 1, "Todo el año: 8:00 - 22:00", "Plaza Ferrerías", "Amara Berri", 43.302711, -1.977051, [[1, 12, 8, 22]]],
+ ["WC Larratxo", "C", 0, "Todo el año: 8:00 - 22:00", "Paseo Bertsolari Txirrita", "Altza", 43.313177, -1.938998, [[1, 12, 8, 22]]],
+ ["WC Zubieta", "S", 0, "Todo el año: 10:00 - hasta cerrar el frontón", "Herriko Plaza", "Zubieta", 43.271026, -2.032817, [[1, 12, 10, null]]],
+ ["WC Urgull (Polborina)", "S", 0, "Todo el año: 10:30 - hasta cerrar Urgull", "Monte Urgull", "Erdialdea", 43.323961, -1.99123, [[1, 12, 10.5, null]]],
+ ["WC Txomin", "C", 1, "Todo el año: 8:00 - 22:00", "Paseo Kristobaldegi", "Loiola", 43.304885, -1.958223, [[1, 12, 8, 22]]],
+ ["WC Arrobitxulo", "C", 1, "Todo el año: 8:00 - 22:00", "San Antonio", "Miracruz - Bidebieta", 43.318109, -1.944121, [[1, 12, 8, 22]]],
+ ["WC Mirador (Behatokia)", "C", 0, "Todo el año: 8:00 - 22:00", "Paseo de Herrera", "Altza", 43.319884, -1.93452, [[1, 12, 8, 22]]],
+ ["WC Clara Campoamor", "P", 0, "Jun-sep: 9:30 - 21:30", "Paseo de la Concha", "Erdialdea", 43.315762, -1.988277, [[6, 9, 9.5, 21.5]]]
 ];
 const TIPOS = {
   P: { nombre: 'Con personal', color: 'var(--t-p)', hex: '#0b7a6b' },
@@ -467,21 +149,50 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_M
   attribution: 'Mapa © Esri, HERE, Garmin, OpenStreetMap · Datos: Ayuntamiento de Donostia / San Sebastián (CC BY-SA)'
 }).addTo(map);
 
-const items = BANOS.map(([nombre, tipo, acc, horario, calle, barrio, lat, lon]) => {
-  const t = TIPOS[tipo];
-  const marcador = L.marker([lat, lon], {
-    title: nombre, keyboard: true,
-    icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14],
-      html: '<div class="wc" style="background:' + t.hex + '">WC</div>' })
-  }).bindPopup(
-    '<h2>' + esc(nombre) + '</h2>' +
-    '<p><span class="tag ' + (acc ? 'si' : 'no') + '">' + (acc ? 'Accesible' : 'No accesible') + '</span> ' + esc(t.nombre) + '</p>' +
-    '<p><b>Horario:</b> ' + esc(horario) + '</p>' +
-    '<p><b>Dónde:</b> ' + esc(calle) + ' · ' + esc(barrio) + '</p>' +
-    '<a class="ir" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=walking">Cómo llegar a pie ↗</a>'
-  );
-  return { nombre, tipo, acc, calle, barrio, lat, lon, marcador, dist: null };
+// Hora y mes actuales en Donostia (da igual la zona horaria del móvil)
+function ahoraMadrid() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', month: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  return { mes: +p.month, hora: +p.hour + (+p.minute) / 60 };
+}
+const hhmm = h => Math.floor(h) + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+function estadoBano(per, ahora) { // -> { abierto, texto }
+  const p = per.find(([m1, m2]) => ahora.mes >= m1 && ahora.mes <= m2);
+  if (!p) return { abierto: false, texto: 'Cerrado ahora (fuera de temporada)' };
+  const [, , abre, cierra] = p;
+  if (ahora.hora < abre) return { abierto: false, texto: 'Cerrado ahora · abre a las ' + hhmm(abre) };
+  if (cierra === null) return { abierto: true, texto: 'Abierto ahora · cierra cuando cierre el local' };
+  if (ahora.hora >= cierra) return { abierto: false, texto: 'Cerrado ahora · cerró a las ' + hhmm(cierra) };
+  return { abierto: true, texto: cierra >= 24 ? 'Abierto ahora' : 'Abierto ahora · cierra a las ' + hhmm(cierra) };
+}
+function icono(tipo, abierto) {
+  return L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14],
+    html: '<div class="wc' + (abierto ? '' : ' cerrado') + '" style="background:' + TIPOS[tipo].hex + '">WC</div>' });
+}
+
+let ahora = ahoraMadrid();
+const items = BANOS.map(([nombre, tipo, acc, horario, calle, barrio, lat, lon, per]) => {
+  const i = { nombre, tipo, acc, calle, barrio, lat, lon, per, dist: null, est: estadoBano(per, ahora) };
+  i.marcador = L.marker([lat, lon], { title: nombre, keyboard: true, icon: icono(tipo, i.est.abierto) })
+    .bindPopup(() =>
+      '<h2>' + esc(nombre) + '</h2>' +
+      '<p><span class="tag ' + (i.est.abierto ? 'si' : 'cerr') + '">' + esc(i.est.texto) + '</span></p>' +
+      '<p><span class="tag ' + (acc ? 'si' : 'no') + '">' + (acc ? 'Accesible' : 'No accesible') + '</span> ' + esc(TIPOS[tipo].nombre) + '</p>' +
+      '<p><b>Horario:</b> ' + esc(horario) + '</p>' +
+      '<p><b>Dónde:</b> ' + esc(calle) + ' · ' + esc(barrio) + '</p>' +
+      '<a class="ir" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=walking">Cómo llegar a pie ↗</a>');
+  return i;
 });
+// Recalcula abierto/cerrado; devuelve true si ha cambiado alguno
+function actualizar() {
+  ahora = ahoraMadrid(); let cambio = false;
+  items.forEach(i => {
+    const e = estadoBano(i.per, ahora);
+    if (e.abierto !== i.est.abierto) { i.marcador.setIcon(icono(i.tipo, e.abierto)); cambio = true; }
+    i.est = e;
+  });
+  return cambio;
+}
 
 const capa = L.layerGroup().addTo(map);
 let yo = null, yoMarca = null;
@@ -495,8 +206,9 @@ function fmt(m) { return m < 1000 ? Math.round(m / 10) * 10 + ' m' : (m / 1000).
 
 let visibles = [];
 function pintar(ajustar) {
-  const tipo = $('selTipo').value, soloAcc = $('soloAcc').checked;
-  visibles = items.filter(i => (!tipo || i.tipo === tipo) && (!soloAcc || i.acc));
+  actualizar();
+  const tipo = $('selTipo').value, soloAcc = $('soloAcc').checked, soloAb = $('soloAbiertos').checked;
+  visibles = items.filter(i => (!tipo || i.tipo === tipo) && (!soloAcc || i.acc) && (!soloAb || i.est.abierto));
   if (yo) { visibles.forEach(i => i.dist = distancia(yo, [i.lat, i.lon])); visibles.sort((a, b) => a.dist - b.dist); }
   else visibles.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   capa.clearLayers();
@@ -507,8 +219,9 @@ function pintar(ajustar) {
 
 $('selTipo').addEventListener('change', () => pintar(true));
 $('soloAcc').addEventListener('change', () => pintar(true));
+$('soloAbiertos').addEventListener('change', () => pintar(true));
 $('reset').addEventListener('click', () => {
-  $('selTipo').value = ''; $('soloAcc').checked = false; yo = null;
+  $('selTipo').value = ''; $('soloAcc').checked = false; $('soloAbiertos').checked = false; yo = null;
   if (yoMarca) { map.removeLayer(yoMarca); yoMarca = null; }
   pintar(true);
 });
@@ -532,6 +245,8 @@ $('cerca').addEventListener('click', () => {
 });
 
 pintar(true);
+// Cada minuto se actualiza quién está abierto (sin cerrar la ventana que tengas abierta)
+setInterval(() => { if (actualizar() && $('soloAbiertos').checked) pintar(false); }, 60000);
 </script>
 </body>
 </html>
